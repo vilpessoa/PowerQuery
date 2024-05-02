@@ -1,8 +1,9 @@
 
-//A PTAX é a taxa de câmbio de referência para o dólar no Brasil, calculada diariamente pelo Banco Central. 
-// chave original do Banco Central:
-// https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodoFechamento(codigoMoeda='USD',dataInicialCotacao='05-05-2024',dataFinalCotacao='05-05-2024')?%24select=cotacaoCompra
-
+/*
+A PTAX é a taxa de câmbio de referência para o dólar no Brasil, calculada diariamente (em dias úteis) pelo Banco Central. 
+chave original do Banco Central:
+https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodoFechamento(codigoMoeda='USD',dataInicialCotacao='05-05-2024',dataFinalCotacao='05-05-2024')?%24select=cotacaoCompra
+*/ 
 
 let
     EtapaAnterior = "...",
@@ -44,11 +45,11 @@ let
             Json.Document(
                 Web.Contents(
                     "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodoFechamento(codigoMoeda='"
-                        & [Moeda]
+                        & [Moeda] //sua coluna com nome da Moeda
                         & "',dataInicialCotacao='"
-                        & [DataPTAX]
+                        & [DataPTAX] //sua coluna de data referência
                         & "',dataFinalCotacao='"
-                        & [DataPTAX]
+                        & [DataPTAX] //sua coluna de data referência
                         & "')?%24select=cotacaoCompra"
                 )
             )
@@ -69,7 +70,7 @@ let
             Replacer.ReplaceValue,
             {"cotacaoPTAX"}
         ),
-        {{"cotacaoPTAX", each Number.Round(_, 2), type number}}
+        {{"cotacaoPTAX", each Number.Round(_, 2), type number}}  //duas casas decimais
     )
 in
     #"value Expandido_"
