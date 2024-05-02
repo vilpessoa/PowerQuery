@@ -1,0 +1,75 @@
+
+//A PTAX é a taxa de câmbio de referência para o dólar no Brasil, calculada diariamente pelo Banco Central. 
+// chave original do Banco Central:
+// https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodoFechamento(codigoMoeda='USD',dataInicialCotacao='05-05-2024',dataFinalCotacao='05-05-2024')?%24select=cotacaoCompra
+
+
+let
+    EtapaAnterior = "...",
+    
+    //aqui adiciona uma coluna de data no formato MM-DD-AAAA, obtendo o dia anterior e verifica se é um dia útil
+    ColunaDataPTAX = Table.AddColumn(
+        EtapaAnterior,
+        "DataPTAX",
+        each
+            let
+                DataAnterior = Date.AddDays([Data Da Criação], -1),
+                DataUtilAnterior =
+                    if Date.DayOfWeek(DataAnterior) = 6 then
+                        Date.AddDays(DataAnterior, -1)
+                    else if Date.DayOfWeek(DataAnterior) = 0 then
+                        Date.AddDays(DataAnterior, -2)
+                    else
+                        DataAnterior,
+                DataFormatada = Text.Combine(
+                    {
+                        Date.ToText(DataUtilAnterior, "MM"),
+                        "-",
+                        Text.PadStart(Date.ToText(DataUtilAnterior, "dd"), 2, "0"),
+                        "-",
+                        Date.ToText(DataUtilAnterior, "yyyy")
+                    },
+                    ""
+                )
+            in
+                DataFormatada,
+        type text
+    ),
+    
+    // Chamada da API com a data formatada
+    ColunaAPI = Table.AddColumn(
+        ColunaDataPTAX,
+        "PTAX",
+        each
+            Json.Document(
+                Web.Contents(
+                    "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodoFechamento(codigoMoeda='"
+                        & [Moeda]
+                        & "',dataInicialCotacao='"
+                        & [DataPTAX]
+                        & "',dataFinalCotacao='"
+                        & [DataPTAX]
+                        & "')?%24select=cotacaoCompra"
+                )
+            )
+    ),
+    
+    // Expansão da coluna PTAX
+    #"PTAX Expandido" = Table.ExpandRecordColumn(ColunaAPI, "PTAX", {"value"}, {"value"}),
+    
+    // Expansão da coluna "value" em uma lista
+    #"value Expandido" = Table.ExpandListColumn(#"PTAX Expandido", "value"),
+    
+    // Expansão da coluna "value" em um registro, sustitui vazios por 1 e arredonda os demais para tipo 0,00
+    #"value Expandido_" = Table.TransformColumns(
+        Table.ReplaceValue(
+            Table.ExpandRecordColumn(#"value Expandido", "value", {"cotacaoCompra"}, {"cotacaoPTAX"}),
+            null,
+            1,
+            Replacer.ReplaceValue,
+            {"cotacaoPTAX"}
+        ),
+        {{"cotacaoPTAX", each Number.Round(_, 2), type number}}
+    )
+in
+    #"value Expandido_"
